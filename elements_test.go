@@ -151,7 +151,7 @@ func TestImages(t *testing.T) {
 
 	// Test image in heading (should use alt text by default)
 	result = md("<h1>Title with <img src=\"image.jpg\" alt=\"image\"></h1>")
-	expected = "\n\nTitle with image\n=================\n\n"
+	expected = "\n\nTitle with image\n================\n\n"
 	if result != expected {
 		t.Errorf("Expected %q, got %q", expected, result)
 	}
@@ -160,7 +160,7 @@ func TestImages(t *testing.T) {
 	opts := DefaultOptions()
 	opts.KeepInlineImagesIn = []string{"h1"}
 	result = md("<h1>Title with <img src=\"image.jpg\" alt=\"image\"></h1>", opts)
-	expected = "Title with ![image](image.jpg)\n=============================\n\n"
+	expected = "Title with ![image](image.jpg)\n==============================\n\n"
 	if result != expected {
 		t.Errorf("Expected %q, got %q", expected, result)
 	}
@@ -193,7 +193,7 @@ func TestHeadings(t *testing.T) {
 	opts := DefaultOptions()
 	opts.HeadingStyle = ATX
 	result = md("<h1>Hello</h1>", opts)
-	expected = "# Hello"
+	expected = "# Hello\n\n"
 	if result != expected {
 		t.Errorf("Expected %q, got %q", expected, result)
 	}
@@ -202,14 +202,14 @@ func TestHeadings(t *testing.T) {
 	opts = DefaultOptions()
 	opts.HeadingStyle = ATX_CLOSED
 	result = md("<h1>Hello</h1>", opts)
-	expected = "# Hello #"
+	expected = "# Hello #\n\n"
 	if result != expected {
 		t.Errorf("Expected %q, got %q", expected, result)
 	}
 
 	// Test heading with nested elements
 	result = md("<h1><strong>Hello</strong> World</h1>")
-	expected = "\n\n**Hello** World\n==============="
+	expected = "\n\n**Hello** World\n===============\n\n"
 	if result != expected {
 		t.Errorf("Expected %q, got %q", expected, result)
 	}
@@ -225,7 +225,7 @@ func TestBlockElements(t *testing.T) {
 	}
 
 	result = md("<p>First paragraph</p><p>Second paragraph</p>")
-	expected = "\n\nFirst paragraph\n\n\n\nSecond paragraph\n\n"
+	expected = "\n\nFirst paragraph\n\nSecond paragraph\n\n"
 	if result != expected {
 		t.Errorf("Expected %q, got %q", expected, result)
 	}
@@ -253,14 +253,14 @@ func TestBlockElements(t *testing.T) {
 
 	// Test div
 	result = md("<div>Hello</div>")
-	expected = "\n\nHello"
+	expected = "\n\nHello\n\n"
 	if result != expected {
 		t.Errorf("Expected %q, got %q", expected, result)
 	}
 
 	// Test nested block elements
 	result = md("<div><p>Hello</p></div>")
-	expected = "\n\nHello"
+	expected = "\n\nHello\n\n"
 	if result != expected {
 		t.Errorf("Expected %q, got %q", expected, result)
 	}

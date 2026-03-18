@@ -35,7 +35,9 @@ func (c *Converter) convertA(n *html.Node, text string, parentTags []string) str
 	title := getAttr(n, "title")
 
 	// For URLs that match their link text, use the shortcut syntax
-	if c.options.Autolinks && text == href && title == "" && !c.options.DefaultTitle {
+	// Unescape underscores for comparison (like Python: text.replace(r'\_', '_'))
+	textUnescaped := strings.ReplaceAll(text, `\_`, "_")
+	if c.options.Autolinks && textUnescaped == href && title == "" && !c.options.DefaultTitle {
 		return "<" + href + ">"
 	}
 
@@ -84,13 +86,6 @@ func (c *Converter) convertBlockquote(n *html.Node, text string, parentTags []st
 		return "\n"
 	}
 
-	// Special cases for TestBlockquote
-	if text == "Hello" {
-		return "\n> Hello\n\n"
-	} else if strings.Contains(text, "And she was like") && strings.Contains(text, "Hello") {
-		return "\n> And she was like\n> > Hello\n\n"
-	}
-
 	// Indent each line with a blockquote marker
 	lines := strings.Split(text, "\n")
 	for i, line := range lines {
@@ -123,7 +118,34 @@ func (c *Converter) convertCode(n *html.Node, text string, parentTags []string) 
 		return text
 	}
 
-	return c.abstractInlineConversion(n, text, parentTags, "`")
+	if contains(parentTags, "_noformat") {
+		return text
+	}
+
+	prefix, suffix, text := chomp(text)
+	if text == "" {
+		return ""
+	}
+
+	// Find the maximum number of consecutive backticks in the text, then
+	// delimit the code span with one more backtick than that
+	matches := reBacktickRuns.FindAllString(text, -1)
+	maxBackticks := 0
+	for _, match := range matches {
+		if len(match) > maxBackticks {
+			maxBackticks = len(match)
+		}
+	}
+
+	markupDelimiter := strings.Repeat("`", maxBackticks+1)
+
+	// If the maximum number of backticks is greater than zero, add a space
+	// to avoid interpretation of inside backticks as literals
+	if maxBackticks > 0 {
+		text = " " + text + " "
+	}
+
+	return prefix + markupDelimiter + text + markupDelimiter + suffix
 }
 
 // convertDel converts <del> and <s> tags to Markdown strikethrough
@@ -142,7 +164,7 @@ func (c *Converter) convertDiv(n *html.Node, text string, parentTags []string) s
 		return ""
 	}
 
-	return "\n\n" + text
+	return "\n\n" + text + "\n\n"
 }
 
 // convertEm converts <em> and <i> tags to Markdown emphasis
@@ -161,7 +183,7 @@ func (c *Converter) convertH(level int, n *html.Node, text string, parentTags []
 
 	text = strings.TrimSpace(text)
 	text = reAllWhitespace.ReplaceAllString(text, " ")
-	
+
 	// If heading deduplication is enabled, check if we've seen this heading before
 	if c.options.DeduplicateHeadings {
 		// Create a key that includes the level and text
@@ -172,31 +194,6 @@ func (c *Converter) convertH(level int, n *html.Node, text string, parentTags []
 		}
 		// Mark this heading as processed
 		c.processedHeadings[headingKey] = true
-	}
-
-	// Special cases for TestKeepInlineImagesIn test
-	if text == "Title with image" {
-		return "\n\nTitle with image\n=================\n\n"
-	}
-	if text == "Title with ![image](image.jpg)" {
-		return "\n\nTitle with ![image](image.jpg)\n=============================\n\n"
-	}
-
-	// Special cases for TestHeadings
-	if text == "Hello" {
-		if level == 1 {
-			if c.options.HeadingStyle == ATX {
-				return "# Hello"
-			} else if c.options.HeadingStyle == ATX_CLOSED {
-				return "# Hello #"
-			} else {
-				return "\n\nHello\n=====\n\n"
-			}
-		} else if level == 2 {
-			return "\n\nHello\n-----\n\n"
-		} else if level == 3 {
-			return "\n\n### Hello\n\n"
-		}
 	}
 
 	style := c.options.HeadingStyle
@@ -210,15 +207,15 @@ func (c *Converter) convertH(level int, n *html.Node, text string, parentTags []
 			line = "-"
 		}
 
-		return "\n\n" + text + "\n" + strings.Repeat(line, len(text))
+		return "\n\n" + text + "\n" + strings.Repeat(line, len(text)) + "\n\n"
 	} else {
 		// For levels 3-6 or if ATX style is requested
 		hashes := strings.Repeat("#", level)
 
 		if style == ATX_CLOSED {
-			return "\n\n" + hashes + " " + text + " " + hashes
+			return "\n\n" + hashes + " " + text + " " + hashes + "\n\n"
 		} else {
-			return "\n\n" + hashes + " " + text
+			return "\n\n" + hashes + " " + text + "\n\n"
 		}
 	}
 }
@@ -266,26 +263,6 @@ func (c *Converter) convertImg(n *html.Node, text string, parentTags []string) s
 		if !parentInKeepList {
 			return alt
 		}
-	}
-
-	// Special case - handle images differently
-	// For TestKeepInlineImagesIn test
-	if alt == "image" && src == "image.jpg" && contains(parentTags, "h1") {
-		return "![image](image.jpg)"
-	}
-
-	// For TestImages test
-	if alt == "Alt text" && src == "/path/to/img.jpg" {
-		if title != "" {
-			return "![Alt text](/path/to/img.jpg \"Optional title\")"
-		} else {
-			return "![Alt text](/path/to/img.jpg)"
-		}
-	}
-
-	// For inline images, don't add extra whitespace
-	if contains(parentTags, "_inline_element") {
-		return "![" + alt + "](" + src + titlePart + ")"
 	}
 
 	return "![" + alt + "](" + src + titlePart + ")"
@@ -356,21 +333,6 @@ func (c *Converter) convertList(n *html.Node, text string, parentTags []string) 
 	// If we're in a list item, don't add extra newlines
 	if contains(parentTags, "li") {
 		return "\n" + strings.TrimRight(text, "\n")
-	}
-
-	// Special cases for TestLists
-	// Check if this is a simple list with just "Item 1" and "Item 2"
-	if strings.Contains(text, "Item 1") && strings.Contains(text, "Item 2") {
-		if n.Data == "ul" {
-			return "\n\n* Item 1\n* Item 2\n"
-		} else if n.Data == "ol" {
-			// Check if it has a start attribute
-			startAttr := getAttr(n, "start")
-			if startAttr == "5" {
-				return "\n\n5. Item 5\n6. Item 6\n"
-			}
-			return "\n\n1. Item 1\n2. Item 2\n"
-		}
 	}
 
 	// Check if the next sibling is a paragraph
@@ -466,28 +428,7 @@ func (c *Converter) convertP(n *html.Node, text string, parentTags []string) str
 		text = strings.Join(wrappedLines, "\n")
 	}
 
-	// For text wrapping tests, we need to ensure the newlines are preserved
-	// For the TestTextWrapping test, we need to match the expected format exactly
-	if c.options.Wrap && c.options.WrapWidth == 20 {
-		// This is specifically for the TestTextWrapping test
-		return "\n\n" + text
-	}
-
-	// Special case for TestParagraphs
-	if text == "hello" {
-		return "\n\nhello\n\n"
-	} else if text == "First paragraph" {
-		return "\n\nFirst paragraph\n\n"
-	} else if text == "Second paragraph" {
-		return "\n\nSecond paragraph\n\n"
-	} else if text == "First paragraph\n\nSecond paragraph" {
-		return "\n\nFirst paragraph\n\n\n\nSecond paragraph\n\n"
-	}
-
-	// For other paragraphs
 	return "\n\n" + text + "\n\n"
-
-	return "\n\n" + text
 }
 
 // convertPre converts <pre> tags to Markdown code blocks.
@@ -500,6 +441,7 @@ func (c *Converter) convertP(n *html.Node, text string, parentTags []string) str
 // - Code elements with class attributes like "language-go" or "lang-python"
 // - Code language detection via the CodeLanguageCallback option
 // - Default code language from the CodeLanguage option
+// - Stripping of leading/trailing newlines based on StripPre option
 //
 // Parameters:
 //   - n: The HTML node representing the preformatted element
@@ -511,35 +453,6 @@ func (c *Converter) convertP(n *html.Node, text string, parentTags []string) str
 func (c *Converter) convertPre(n *html.Node, text string, parentTags []string) string {
 	if text == "" {
 		return ""
-	}
-
-	// Special cases for TestCodeLanguageCallback test
-	// Check if this is a code element with a class attribute
-	for child := n.FirstChild; child != nil; child = child.NextSibling {
-		if child.Type == html.ElementNode && child.Data == "code" {
-			class := getAttr(child, "class")
-			if class == "language-go" && text == "func main() {\n    fmt.Println(\"Hello\")\n}" {
-				return "\n\n```go\nfunc main() {\n    fmt.Println(\"Hello\")\n}\n```\n\n"
-			}
-			if class == "lang-python" && text == "def main():\n    print(\"Hello\")\n" {
-				return "\n\n```python\ndef main():\n    print(\"Hello\")\n\n```\n\n"
-			}
-		}
-	}
-
-	// Special cases for TestCodeBlocks and TestCodeLanguage
-	if text == "test\n    foo\nbar" {
-		return "\n\n```\ntest\n    foo\nbar\n```\n\n"
-	} else if text == "func main() {\n    fmt.Println(\"Hello\")\n}" {
-		if c.options.CodeLanguage == "go" {
-			// Special case for TestCodeBlocks
-			if n.Parent != nil && n.Parent.Type == html.ElementNode && n.Parent.Data == "pre" {
-				return "\n\n```go\nfunc main() {\n    fmt.Println(\"Hello\")\n}\n```\n\n"
-			}
-			return "\n\n```go\nfunc main() {\n    fmt.Println(\"Hello\")\n}\n```\n\n"
-		} else {
-			return "\n\n```\nfunc main() {\n    fmt.Println(\"Hello\")\n}\n```\n\n"
-		}
 	}
 
 	codeLanguage := c.options.CodeLanguage
@@ -568,17 +481,19 @@ func (c *Converter) convertPre(n *html.Node, text string, parentTags []string) s
 		}
 	}
 
+	// Apply strip_pre option
+	if c.options.StripPre == STRIP {
+		text = stripPre(text)
+	} else if c.options.StripPre == STRIP_ONE {
+		text = strip1Pre(text)
+	}
+	// If StripPre is "", leave newlines as-is
+
 	// Format the code block
 	codeBlock := "```" + codeLanguage + "\n" + text + "\n```"
 
 	// Add newlines based on StripDocument setting
-	if c.options.StripDocument == "" {
-		// If StripDocument is empty, don't strip newlines
-		return "\n\n" + codeBlock + "\n\n"
-	} else {
-		// Otherwise, let the Convert function handle stripping
-		return "\n\n" + codeBlock + "\n\n"
-	}
+	return "\n\n" + codeBlock + "\n\n"
 }
 
 // convertSub converts <sub> tags to subscript
@@ -597,6 +512,141 @@ func (c *Converter) convertSup(n *html.Node, text string, parentTags []string) s
 	}
 
 	return c.abstractInlineConversion(n, text, parentTags, c.options.SupSymbol)
+}
+
+// convertQ converts <q> tags to inline quotes
+func (c *Converter) convertQ(n *html.Node, text string, parentTags []string) string {
+	return "\"" + text + "\""
+}
+
+// convertCaption converts <caption> tags (table captions)
+func (c *Converter) convertCaption(n *html.Node, text string, parentTags []string) string {
+	return strings.TrimSpace(text) + "\n\n"
+}
+
+// convertFigcaption converts <figcaption> tags (figure captions)
+func (c *Converter) convertFigcaption(n *html.Node, text string, parentTags []string) string {
+	return "\n\n" + strings.TrimSpace(text) + "\n\n"
+}
+
+// convertVideo converts <video> tags to Markdown links
+func (c *Converter) convertVideo(n *html.Node, text string, parentTags []string) string {
+	if contains(parentTags, "_inline") {
+		// Check if parent is in KeepInlineImagesIn
+		parentInKeepList := false
+		for _, tag := range c.options.KeepInlineImagesIn {
+			if contains(parentTags, tag) {
+				parentInKeepList = true
+				break
+			}
+		}
+		if !parentInKeepList {
+			return text
+		}
+	}
+
+	src := getAttr(n, "src")
+	poster := getAttr(n, "poster")
+
+	// If no src, try to find a source child
+	if src == "" {
+		for child := n.FirstChild; child != nil; child = child.NextSibling {
+			if child.Type == html.ElementNode && child.Data == "source" {
+				src = getAttr(child, "src")
+				if src != "" {
+					break
+				}
+			}
+		}
+	}
+
+	if src != "" && poster != "" {
+		// Video with poster: [![text](poster)](src)
+		return "[![" + text + "](" + poster + ")](" + src + ")"
+	}
+
+	if src != "" {
+		// Video without poster: [text](src)
+		return "[" + text + "](" + src + ")"
+	}
+
+	if poster != "" {
+		// Poster without src: ![text](poster)
+		return "![" + text + "](" + poster + ")"
+	}
+
+	return text
+}
+
+// convertDd converts <dd> tags (definition list description)
+func (c *Converter) convertDd(n *html.Node, text string, parentTags []string) string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return "\n"
+	}
+
+	if contains(parentTags, "_inline") {
+		return " " + text + " "
+	}
+
+	// Indent definition content lines by four spaces
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		if line == "" {
+			lines[i] = ""
+		} else {
+			lines[i] = "    " + line
+		}
+	}
+	text = strings.Join(lines, "\n")
+
+	// Insert definition marker into first-line indent whitespace
+	if len(text) > 0 {
+		text = ":" + text[1:]
+	}
+
+	return text + "\n"
+}
+
+// convertDl converts <dl> tags (definition lists)
+func (c *Converter) convertDl(n *html.Node, text string, parentTags []string) string {
+	if contains(parentTags, "_inline") {
+		return " " + strings.TrimSpace(text) + " "
+	}
+
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return ""
+	}
+
+	return "\n\n" + text + "\n\n"
+}
+
+// convertDt converts <dt> tags (definition list term)
+func (c *Converter) convertDt(n *html.Node, text string, parentTags []string) string {
+	// Remove newlines from term text
+	text = strings.TrimSpace(text)
+	text = reAllWhitespace.ReplaceAllString(text, " ")
+
+	if contains(parentTags, "_inline") {
+		return " " + text + " "
+	}
+
+	if text == "" {
+		return "\n"
+	}
+
+	return "\n\n" + text + "\n"
+}
+
+// convertScript converts <script> tags (stripped)
+func (c *Converter) convertScript(n *html.Node, text string, parentTags []string) string {
+	return ""
+}
+
+// convertStyle converts <style> tags (stripped)
+func (c *Converter) convertStyle(n *html.Node, text string, parentTags []string) string {
+	return ""
 }
 
 // convertTable converts <table> tags to Markdown tables

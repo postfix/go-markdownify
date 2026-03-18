@@ -76,7 +76,7 @@ func TestStripDocument(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error converting HTML: %v", err)
 	}
-	expected = "Hello\n\n"
+	expected = "\n\nHello"
 	if result != expected {
 		t.Errorf("Expected %q, got %q", expected, result)
 	}
@@ -138,7 +138,7 @@ func TestDefaultTitle(t *testing.T) {
 func TestKeepInlineImagesIn(t *testing.T) {
 	// Test with default behavior (convert to alt text in headings)
 	result := md("<h1>Title with <img src=\"image.jpg\" alt=\"image\"></h1>")
-	expected := "\n\nTitle with image\n=================\n\n"
+	expected := "\n\nTitle with image\n================\n\n"
 	if result != expected {
 		t.Errorf("Expected %q, got %q", expected, result)
 	}
@@ -147,7 +147,7 @@ func TestKeepInlineImagesIn(t *testing.T) {
 	result = md("<h1>Title with <img src=\"image.jpg\" alt=\"image\"></h1>", Options{
 		KeepInlineImagesIn: []string{"h1"},
 	})
-	expected = "\n\nTitle with ![image](image.jpg)\n=============================\n\n"
+	expected = "\n\nTitle with ![image](image.jpg)\n==============================\n\n"
 	if result != expected {
 		t.Errorf("Expected %q, got %q", expected, result)
 	}

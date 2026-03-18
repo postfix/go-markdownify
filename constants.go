@@ -46,4 +46,7 @@ const (
 
 	// STRIP removes both leading and trailing newlines from the document
 	STRIP = "strip"
+
+	// STRIP_ONE removes one leading and trailing newline from the document
+	STRIP_ONE = "strip_one"
 )

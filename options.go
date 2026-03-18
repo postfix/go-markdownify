@@ -79,6 +79,11 @@ type Options struct {
 	// STRIP (remove both), or "" (don't strip).
 	StripDocument string
 
+	// StripPre specifies how to handle leading and trailing newlines in <pre> tags.
+	// Valid values are STRIP (remove all leading/trailing newlines), STRIP_ONE (remove one
+	// leading/trailing newline), or "" (don't strip).
+	StripPre string
+
 	// StrongEmSymbol specifies the symbol to use for strong and emphasis formatting.
 	// Valid values are ASTERISK (*emphasis* and **strong**) and UNDERSCORE (_emphasis_ and __strong__).
 	StrongEmSymbol string
@@ -128,6 +133,7 @@ func DefaultOptions() Options {
 		NormalizeNewlines:   true,
 		Strip:               nil,
 		StripDocument:       LSTRIP,
+		StripPre:            STRIP, // Match Python markdownify behavior
 		StrongEmSymbol:      ASTERISK,
 		SubSymbol:           "",
 		SupSymbol:           "",

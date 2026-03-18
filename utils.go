@@ -1,10 +1,51 @@
 package gomarkdownify
 
 import (
+	"regexp"
 	"strings"
 
 	"golang.org/x/net/html"
 )
+
+// Regular expressions for stripping pre text
+var (
+	rePreLStrip1 = regexp.MustCompile(`^ *\n`)
+	rePreRStrip1 = regexp.MustCompile(`\n *$`)
+	rePreLStrip  = regexp.MustCompile(`^[ \n]*\n`)
+	rePreRStrip  = regexp.MustCompile(`[ \n]*$`)
+)
+
+// strip1Pre strips one leading and trailing newline from a <pre> string.
+//
+// This function removes exactly one newline from the beginning and end of the text,
+// along with any spaces adjacent to those newlines.
+//
+// Parameters:
+//   - text: The text to strip.
+//
+// Returns:
+//   - The text with one leading/trailing newline removed.
+func strip1Pre(text string) string {
+	text = rePreLStrip1.ReplaceAllString(text, "")
+	text = rePreRStrip1.ReplaceAllString(text, "")
+	return text
+}
+
+// stripPre strips all leading and trailing newlines from a <pre> string.
+//
+// This function removes all newlines (and adjacent spaces) from the beginning
+// and end of the text.
+//
+// Parameters:
+//   - text: The text to strip.
+//
+// Returns:
+//   - The text with all leading/trailing newlines removed.
+func stripPre(text string) string {
+	text = rePreLStrip.ReplaceAllString(text, "")
+	text = rePreRStrip.ReplaceAllString(text, "")
+	return text
+}
 
 // chomp removes leading and trailing whitespace from text and returns the
 // prefix (leading whitespace), suffix (trailing whitespace), and the trimmed text.

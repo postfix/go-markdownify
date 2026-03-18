@@ -121,7 +121,7 @@ func TestConvertWithOptions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error converting HTML: %v", err)
 	}
-	expected = "Hello\n\n"
+	expected = "\n\nHello"
 	if result != expected {
 		t.Errorf("Convert with StripDocument = RSTRIP: Expected %q, got %q", expected, result)
 	}

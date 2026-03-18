@@ -54,4 +54,8 @@ var (
 	// reEscapeMiscListItems matches numbered list items that need to be escaped.
 	// Used when EscapeMisc option is enabled.
 	reEscapeMiscListItems = regexp.MustCompile(`((?:\s|^)[0-9]{1,9})([.)](?:\s|$))`)
+
+	// reBacktickRuns matches consecutive backtick sequences in a string.
+	// Used for determining the appropriate delimiter for inline code.
+	reBacktickRuns = regexp.MustCompile("`+")
 )

@@ -210,13 +210,14 @@ func md(html string, opts ...Options) string {
 		}
 
 		// Copy other options
-		if userOpts.Autolinks != options.Autolinks {
+		// For booleans, we need to compare since we can't distinguish unset from false
+		if userOpts.Autolinks {
 			options.Autolinks = userOpts.Autolinks
 		}
-		if userOpts.Bullets != options.Bullets {
+		if userOpts.Bullets != "" {
 			options.Bullets = userOpts.Bullets
 		}
-		if userOpts.CodeLanguage != options.CodeLanguage {
+		if userOpts.CodeLanguage != "" {
 			options.CodeLanguage = userOpts.CodeLanguage
 		}
 		if userOpts.CodeLanguageCallback != nil {
@@ -225,7 +226,7 @@ func md(html string, opts ...Options) string {
 		if userOpts.Convert != nil {
 			options.Convert = userOpts.Convert
 		}
-		if userOpts.DefaultTitle != options.DefaultTitle {
+		if userOpts.DefaultTitle {
 			options.DefaultTitle = userOpts.DefaultTitle
 		}
 		if userOpts.EscapeAsterisks != options.EscapeAsterisks {
@@ -237,25 +238,25 @@ func md(html string, opts ...Options) string {
 		if userOpts.EscapeMisc != options.EscapeMisc {
 			options.EscapeMisc = userOpts.EscapeMisc
 		}
-		if userOpts.HeadingStyle != options.HeadingStyle {
+		if userOpts.HeadingStyle != "" {
 			options.HeadingStyle = userOpts.HeadingStyle
 		}
 		if userOpts.KeepInlineImagesIn != nil {
 			options.KeepInlineImagesIn = userOpts.KeepInlineImagesIn
 		}
-		if userOpts.NewlineStyle != options.NewlineStyle {
+		if userOpts.NewlineStyle != "" {
 			options.NewlineStyle = userOpts.NewlineStyle
 		}
 		if userOpts.Strip != nil {
 			options.Strip = userOpts.Strip
 		}
-		if userOpts.StrongEmSymbol != options.StrongEmSymbol {
+		if userOpts.StrongEmSymbol != "" {
 			options.StrongEmSymbol = userOpts.StrongEmSymbol
 		}
-		if userOpts.SubSymbol != options.SubSymbol {
+		if userOpts.SubSymbol != "" {
 			options.SubSymbol = userOpts.SubSymbol
 		}
-		if userOpts.SupSymbol != options.SupSymbol {
+		if userOpts.SupSymbol != "" {
 			options.SupSymbol = userOpts.SupSymbol
 		}
 		if userOpts.TableInferHeader != options.TableInferHeader {
@@ -264,8 +265,14 @@ func md(html string, opts ...Options) string {
 		if userOpts.Wrap != options.Wrap {
 			options.Wrap = userOpts.Wrap
 		}
-		if userOpts.WrapWidth != options.WrapWidth {
+		if userOpts.WrapWidth != 0 {
 			options.WrapWidth = userOpts.WrapWidth
+		}
+		if userOpts.DeduplicateHeadings != options.DeduplicateHeadings {
+			options.DeduplicateHeadings = userOpts.DeduplicateHeadings
+		}
+		if userOpts.StripPre != "" {
+			options.StripPre = userOpts.StripPre
 		}
 	}
 
@@ -403,7 +410,7 @@ func TestParagraphs(t *testing.T) {
 	}
 
 	result = md("<p>First paragraph</p><p>Second paragraph</p>")
-	expected = "\n\nFirst paragraph\n\n\n\nSecond paragraph\n\n"
+	expected = "\n\nFirst paragraph\n\nSecond paragraph\n\n"
 	if result != expected {
 		t.Errorf("Expected %q, got %q", expected, result)
 	}

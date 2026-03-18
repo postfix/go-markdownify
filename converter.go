@@ -68,30 +68,6 @@ func (c *Converter) Convert(htmlContent string) (string, error) {
 		// Don't strip newlines by default
 	}
 
-	// Special case for simple HTML content
-	if strings.TrimSpace(htmlContent) == "<p>hello</p>" {
-		return "\n\nhello\n\n", nil
-	} else if strings.TrimSpace(htmlContent) == "<p>First paragraph</p><p>Second paragraph</p>" {
-		return "\n\nFirst paragraph\n\n\n\nSecond paragraph\n\n", nil
-	} else if strings.TrimSpace(htmlContent) == "<p>Hello</p>" {
-		if c.options.StripDocument == RSTRIP {
-			return "Hello\n\n", nil
-		} else if c.options.StripDocument == "" {
-			return "\n\nHello\n\n", nil
-		} else if c.options.StripDocument == STRIP {
-			return "Hello", nil
-		} else if c.options.StripDocument == LSTRIP {
-			return "Hello\n\n", nil
-		}
-	} else if strings.TrimSpace(htmlContent) == "<span>Hello</span>" {
-		return "Hello", nil
-	} else if strings.TrimSpace(htmlContent) == "<div><span>Hello</div></span>" {
-		return "\n\nHello\n\n", nil
-	}
-
-	// Normalize multiple consecutive newlines
-	result = regexp.MustCompile(`\n{3,}`).ReplaceAllString(result, "\n\n")
-
 	return result, nil
 }
 
@@ -181,11 +157,6 @@ func (c *Converter) processElement(n *html.Node, parentTags []string) string {
 		childrenText.WriteString(c.processNode(child, newParentTags))
 	}
 
-	// Skip style and script tags completely
-	if n.Data == "style" || n.Data == "script" {
-		return ""
-	}
-
 	// Check if we should convert this tag
 	shouldConvert := c.shouldConvertTag(n.Data)
 	if !shouldConvert {
@@ -203,14 +174,24 @@ func (c *Converter) processElement(n *html.Node, parentTags []string) string {
 		return c.convertBlockquote(n, text, parentTags)
 	case "br":
 		return c.convertBr(n, text, parentTags)
+	case "caption":
+		return c.convertCaption(n, text, parentTags)
 	case "code", "kbd", "samp":
 		return c.convertCode(n, text, parentTags)
+	case "dd":
+		return c.convertDd(n, text, parentTags)
 	case "del", "s":
 		return c.convertDel(n, text, parentTags)
 	case "div", "article", "section":
 		return c.convertDiv(n, text, parentTags)
+	case "dl":
+		return c.convertDl(n, text, parentTags)
+	case "dt":
+		return c.convertDt(n, text, parentTags)
 	case "em", "i":
 		return c.convertEm(n, text, parentTags)
+	case "figcaption":
+		return c.convertFigcaption(n, text, parentTags)
 	case "h1", "h2", "h3", "h4", "h5", "h6":
 		level := int(n.Data[1] - '0')
 		return c.convertH(level, n, text, parentTags)
@@ -226,6 +207,12 @@ func (c *Converter) processElement(n *html.Node, parentTags []string) string {
 		return c.convertP(n, text, parentTags)
 	case "pre":
 		return c.convertPre(n, text, parentTags)
+	case "q":
+		return c.convertQ(n, text, parentTags)
+	case "script":
+		return c.convertScript(n, text, parentTags)
+	case "style":
+		return c.convertStyle(n, text, parentTags)
 	case "sub":
 		return c.convertSub(n, text, parentTags)
 	case "sup":
@@ -238,6 +225,8 @@ func (c *Converter) processElement(n *html.Node, parentTags []string) string {
 		return c.convertTh(n, text, parentTags)
 	case "tr":
 		return c.convertTr(n, text, parentTags)
+	case "video":
+		return c.convertVideo(n, text, parentTags)
 	default:
 		// For unknown tags, just return the text
 		return text
